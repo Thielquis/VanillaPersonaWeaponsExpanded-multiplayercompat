@@ -1,5 +1,7 @@
 ﻿using HarmonyLib;
+using Multiplayer.API;
 using RimWorld;
+using System.Linq;
 using UnityEngine;
 using Verse;
 
@@ -10,6 +12,25 @@ namespace VanillaPersonaWeaponsExpanded
         public VanillaPersonaWeaponsExpandedMod(ModContentPack pack) : base(pack)
         {
             new Harmony("VanillaPersonaWeaponsExpanded.Mod").PatchAll();
+        }
+
+
+        [SyncMethod]
+        public static void RemoveUsedLetter(int id)
+        {
+            int index = Current.Game.GetComponent<GameComponent_PersonaWeapons>().unresolvedLetters.FirstIndexOf(letter => letter.ID == id);
+            if (index != -1)
+            {
+                ChoiceLetter_ChoosePersonaWeapon letter = Current.Game.GetComponent<GameComponent_PersonaWeapons>().unresolvedLetters[index];
+                Current.Game.GetComponent<GameComponent_PersonaWeapons>().unresolvedLetters.Remove(letter);
+                Find.Archive.Remove(letter);
+            }
+        }
+
+        [SyncMethod]
+        public static void CloseDialogWindowForPawn(Pawn pawn)
+        {
+            Find.WindowStack.Windows.FirstOrDefault(x => x.GetType() == typeof(Dialog_ChoosePersonaWeapon) && (x as Dialog_ChoosePersonaWeapon).pawn == pawn && x.IsOpen)?.Close(false);
         }
     }
 

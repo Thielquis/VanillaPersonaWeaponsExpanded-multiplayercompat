@@ -19,8 +19,9 @@ namespace VanillaPersonaWeaponsExpanded
         public List<WeaponTraitDef> allWeaponTraits;
 
         public WeaponTraitDef currentWeaponTrait;
+
         public Dialog_ChoosePersonaWeapon(ChoiceLetter_ChoosePersonaWeapon choiceLetter, List<Thing> allWeapons,
-            CompGraphicCustomization comp, Pawn pawn = null) : base(comp, pawn)
+            ExtendedGraphicComp comp, Pawn pawn = null) : base(comp, pawn)
         {
             this.allWeapons = allWeapons;
             this.currentWeapon = comp.parent;
@@ -34,7 +35,7 @@ namespace VanillaPersonaWeaponsExpanded
             Rect titleRect = DrawTitle(ref inRect);
 
             var floatMenuButtonsRect = new Rect(inRect.x + 150, titleRect.yMax, inRect.width - 300, 32);
-            MakeFloatOptionButtons(floatMenuButtonsRect, 
+            MakeFloatOptionButtons(floatMenuButtonsRect,
                 leftAction: delegate
                 {
                     if (allWeapons.IndexOf(currentWeapon) > 0)
@@ -72,8 +73,9 @@ namespace VanillaPersonaWeaponsExpanded
             Rect viewArea = new Rect(inRect.x, outerRect.y, inRect.width - 16, height);
             Rect itemTextureRect = new Rect(inRect.x + 10, viewArea.y, 250, 250);
 
+            DrawItem(itemTextureRect);
             Widgets.BeginScrollView(outerRect, ref scrollPosition, viewArea, true);
-            DrawArea(itemTextureRect);
+            DrawCustomizationArea(itemTextureRect);
             Widgets.EndScrollView();
 
             var cancelRect = new Rect((inRect.width / 2f) - 155, inRect.height - 32, 150, 32);
@@ -84,33 +86,47 @@ namespace VanillaPersonaWeaponsExpanded
             var confirmRect = new Rect((inRect.width / 2f) + 5, inRect.height - 32, 250, 32);
             DrawConfirmButton(confirmRect, "VPWE.ClaimFor".Translate(pawn.Named("PAWN")), delegate
             {
-                this.comp.texVariantsToCustomize = this.currentVariants;
-                this.comp.Customize();
-                if (compGeneratedName != null)
+                List<string> complete = new List<string>();
+                List<bool> overrideExist = new List<bool>();
+                List<float> chances = new List<float>();
+                List<float> overrideChances = new List<float>();
+                foreach (TextureVariant variant in this.currentVariants)
                 {
-                    compGeneratedName.name = currentName;
+                    complete.Add(variant.texName);
+                    complete.Add(variant.texture);
+                    complete.Add(variant.outline);
+                    if (variant.textureVariantOverride != null)
+                    {
+                        overrideExist.Add(true);
+                        chances.Add(variant.textureVariantOverride.chance);
+                        complete.Add(variant.textureVariantOverride.groupName);
+                        complete.Add(variant.textureVariantOverride.texName);
+                    }
+                    else {
+                        overrideExist.Add(false);
+                        chances.Add(0);
+                        complete.Add("");
+                        complete.Add("");
+                    }
+                    overrideChances.Add(variant.chanceOverride);
                 }
-                var compBladelink = currentWeapon.TryGetComp<CompBladelinkWeapon>();
-                compBladelink.traits.Clear();
-                compBladelink.traits.Add(this.currentWeaponTrait);
-                compBladelink.CodeFor(this.pawn);
-                var map = pawn.MapHeld ?? Find.AnyPlayerHomeMap;
-                var qualityComp = currentWeapon.TryGetComp<CompQuality>();
-                if (qualityComp != null)
-                {
-                    qualityComp.SetQuality(QualityCategory.Excellent, ArtGenerationContext.Outsider);
-                }
-                DropPodUtility.DropThingsNear(map.Center, map, new List<Thing> { currentWeapon }, 110, canInstaDropDuringInit: false, leaveSlag: true);
+
+                GameComponent_PersonaWeapons.AddWeaponForPawn(pawn, currentWeapon.def);
+                GameComponent_PersonaWeapons.SetCustomWeaponGraphicForPawn(this.pawn, complete, overrideExist, chances, overrideChances, currentName);
+                GameComponent_PersonaWeapons.SetWeaponTraitForPawn(this.pawn, this.currentWeaponTrait);
+                GameComponent_PersonaWeapons.SetWeaponQualityForPawn(this.pawn);
+                GameComponent_PersonaWeapons.DropWeaponForPawn(this.pawn, ref currentWeapon);
+
                 Find.LetterStack.ReceiveLetter("VPWE.ReceivedWeaponTitle".Translate(), "VPWE.ReceivedWeaponDesc".Translate(currentWeapon.Label, pawn.Named("PAWN")), LetterDefOf.NeutralEvent, currentWeapon);
-                Current.Game.GetComponent<GameComponent_PersonaWeapons>().unresolvedLetters.Remove(choiceLetter);
-                Find.Archive.Remove(choiceLetter);
+                VanillaPersonaWeaponsExpandedMod.RemoveUsedLetter(choiceLetter.ID);
                 this.Close();
+                VanillaPersonaWeaponsExpandedMod.CloseDialogWindowForPawn(this.pawn);
             });
         }
 
-        protected override void DrawArea(Rect itemTextureRect)
+        public override void DrawCustomizationArea(Rect itemTextureRect)
         {
-            base.DrawArea(itemTextureRect);
+            base.DrawCustomizationArea(itemTextureRect);
             var personaTitleRect = new Rect(itemTextureRect.x, itemTextureRect.yMax + 26, 150, 24);
             Widgets.Label(personaTitleRect, "VPWE.Persona".Translate());
             var floatMenuButtonsRect = new Rect(personaTitleRect.x, personaTitleRect.yMax, 250, 32);
@@ -159,7 +175,7 @@ namespace VanillaPersonaWeaponsExpanded
             return Mathf.Max(250 + 24 + 32 + height + 35, baseNumber);
         }
         
-        protected override void Randomize()
+        public override void Randomize()
         {
             base.Randomize();
             this.currentWeaponTrait = allWeaponTraits.RandomElement();

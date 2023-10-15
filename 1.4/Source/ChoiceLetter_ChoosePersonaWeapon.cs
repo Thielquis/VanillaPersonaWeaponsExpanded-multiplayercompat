@@ -93,7 +93,7 @@ namespace VanillaPersonaWeaponsExpanded
             {
                 allWeapons.Add(ThingMaker.MakeThing(otherDef, GenStuff.DefaultStuffFor(otherDef)));
             }
-            Find.WindowStack.Add(new Dialog_ChoosePersonaWeapon(this, allWeapons, weapon.TryGetComp<CompGraphicCustomization>(), pawn));
+            Find.WindowStack.Add(new Dialog_ChoosePersonaWeapon(this, allWeapons, weapon.TryGetComp<ExtendedGraphicComp>(), pawn));
         }
 
         public override void ExposeData()
